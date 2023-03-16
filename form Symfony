@@ -1,0 +1,44 @@
+<?php
+
+#[Route('/test', name: '', methods: ['GET', 'POST'])]
+    public function publicShow(Request $request)
+    {
+
+        $formBuilder = $this->createFormBuilder();
+        $formBuilder->add('field', TextType::class);
+        $formBuilder->add('save', SubmitType::class, ['label' => 'Envoit']);
+        $form = $formBuilder->getForm();
+
+        $listener = function (FormEvent $event) {
+            $data = $event->getData();
+            $form = $event->getForm();
+        
+            // Récupération de la valeur du champ "field"
+            $fieldValue = $data['field'];
+        
+            // Chiffrement des données
+            $this->nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+            $this->key = sodium_crypto_secretbox_keygen();
+            $encryptedData = sodium_crypto_secretbox($fieldValue, $this->nonce, $this->key);
+        
+            // Stockage du field chiffré
+            $data['field'] = $encryptedData;
+        
+            // Mise à jour des données soumises
+            $event->setData($data);
+        };
+        
+        $formBuilder->addEventListener(FormEvents::PRE_SUBMIT, $listener);
+        $form = $formBuilder->getForm();
+        $form->handleRequest($request);
+        
+        if ($form->isSubmitted() && $form->isValid()) {
+            // Récupération de la valeur du champ "field"
+            $fieldValue = $form->get('field')->getData();
+
+            // dd($fieldValue);
+           
+            $decryptedData = sodium_crypto_secretbox_open($fieldValue, $this->nonce, $this->key);
+        
+            dd($decryptedData);
+        }
